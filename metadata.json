@@ -1,0 +1,9 @@
+{
+  "name": "Mechanic Co-Pilot Intelligent Apps",
+  "description": "An AI-powered assistant for mechanics providing real-time diagnostics, car specs, and repair SOPs based on vehicle issues.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "bluetooth"
+  ]
+}
