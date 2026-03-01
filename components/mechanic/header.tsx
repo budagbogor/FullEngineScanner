@@ -25,7 +25,7 @@ export function Header({ isConnected, hasHistory, hasApiKey, onClearHistory, onO
             <Text className="text-white text-lg">⚙️</Text>
           </LinearGradient>
         </View>
-        
+
         {/* Title */}
         <View>
           <Text className="font-bold text-foreground text-base leading-tight">

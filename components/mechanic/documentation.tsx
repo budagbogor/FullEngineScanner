@@ -9,7 +9,7 @@ export function Documentation() {
   const { isDesktop } = useResponsive();
 
   return (
-    <ScrollView 
+    <ScrollView
       className="flex-1 bg-background"
       showsVerticalScrollIndicator={false}
     >
@@ -23,8 +23,8 @@ export function Documentation() {
         </View>
 
         {/* Tabs */}
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           className="mb-8"
         >
@@ -36,15 +36,13 @@ export function Documentation() {
             <TouchableOpacity
               key={tab.id}
               onPress={() => setActiveSection(tab.id as Section)}
-              className={`px-4 py-2 rounded-lg mr-3 ${
-                activeSection === tab.id 
-                  ? 'bg-primary' 
+              className={`px-4 py-2 rounded-lg mr-3 ${activeSection === tab.id
+                  ? 'bg-primary'
                   : 'bg-surface'
-              }`}
+                }`}
             >
-              <Text className={`text-sm font-bold ${
-                activeSection === tab.id ? 'text-white' : 'text-muted'
-              }`}>
+              <Text className={`text-sm font-bold ${activeSection === tab.id ? 'text-white' : 'text-muted'
+                }`}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -102,7 +100,7 @@ export function Documentation() {
             <View className="bg-primary/10 border border-primary/30 p-6 rounded-xl mb-8">
               <Text className="text-xl font-bold text-primary mb-2">Fitur Utama: Multimodal Input</Text>
               <Text className="text-sm text-muted mb-4">Aplikasi ini bisa "Melihat" dan "Mendengar". Jangan hanya mengetik.</Text>
-              
+
               <View className={isDesktop ? 'flex-row gap-4' : ''}>
                 {[
                   { icon: '📸', title: 'Visual Diagnosis', desc: 'Foto komponen rembes, kabel putus, atau STNK untuk auto-detect mobil.' },
@@ -170,7 +168,7 @@ export function Documentation() {
             <View className="bg-error/10 border border-error/30 p-4 rounded-xl">
               <Text className="text-error font-bold mb-2">⚠️ Peringatan Keamanan</Text>
               <Text className="text-muted text-sm">
-                Penggunaan Engineering Mode yang tidak tepat dapat menyebabkan kerusakan permanen pada ECU kendaraan. 
+                Penggunaan Engineering Mode yang tidak tepat dapat menyebabkan kerusakan permanen pada ECU kendaraan.
                 Selalu pastikan Anda memahami command yang akan dikirim dan kondisi pre-requisite yang diperlukan.
               </Text>
             </View>

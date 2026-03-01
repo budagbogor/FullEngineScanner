@@ -81,10 +81,10 @@ const mechanicResponseSchema = {
             type: "array",
             items: {
               type: "object",
-              properties: { 
-                brand: { type: "string" }, 
-                part_number: { type: "string" }, 
-                estimated_price: { type: "string" } 
+              properties: {
+                brand: { type: "string" },
+                part_number: { type: "string" },
+                estimated_price: { type: "string" }
               }
             }
           }
@@ -96,10 +96,10 @@ const mechanicResponseSchema = {
       type: "array",
       items: {
         type: "object",
-        properties: { 
-          part: { type: "string" }, 
-          value: { type: "string" }, 
-          size: { type: "string" } 
+        properties: {
+          part: { type: "string" },
+          value: { type: "string" },
+          size: { type: "string" }
         }
       }
     },
@@ -116,11 +116,11 @@ const mechanicResponseSchema = {
     estimated_work_time: { type: "string" },
     cost_estimation: {
       type: "object",
-      properties: { 
-        parts_total: { type: "string" }, 
-        labor_cost: { type: "string" }, 
-        hourly_rate: { type: "string" }, 
-        total_estimate: { type: "string" } 
+      properties: {
+        parts_total: { type: "string" },
+        labor_cost: { type: "string" },
+        hourly_rate: { type: "string" },
+        total_estimate: { type: "string" }
       }
     },
     obd_hex_commands: {
@@ -143,12 +143,12 @@ const mechanicResponseSchema = {
 };
 
 export const getMechanicAdvice = async (
-  input: string, 
+  input: string,
   media?: MediaInput | null,
   apiKey?: string
 ): Promise<MechanicResponse> => {
   const key = apiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  
+
   if (!key) {
     throw new Error("API Key is missing. Please set EXPO_PUBLIC_GEMINI_API_KEY");
   }
@@ -192,9 +192,9 @@ export const getMechanicAdvice = async (
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!text) throw new Error("No response from AI");
-    
+
     return JSON.parse(text) as MechanicResponse;
 
   } catch (error) {
