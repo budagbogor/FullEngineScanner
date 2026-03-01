@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 
 // ELM327 Standard PIDs
 export const PIDs = {
@@ -73,41 +73,92 @@ class ObdService {
         }
     }
 
+    private async requestPermissions(): Promise<boolean> {
+        if (Platform.OS !== 'android') return true;
+
+        try {
+            if (Platform.Version >= 31) {
+                const result = await PermissionsAndroid.requestMultiple([
+                    PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+                    PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                ]);
+
+                return (
+                    result['android.permission.BLUETOOTH_CONNECT'] === PermissionsAndroid.RESULTS.GRANTED &&
+                    result['android.permission.BLUETOOTH_SCAN'] === PermissionsAndroid.RESULTS.GRANTED &&
+                    result['android.permission.ACCESS_FINE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED
+                );
+            } else {
+                const result = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+                );
+                return result === PermissionsAndroid.RESULTS.GRANTED;
+            }
+        } catch (e) {
+            console.error('Permission request error', e);
+            return false;
+        }
+    }
+
     // Mobile Bluetooth Implementation (Native)
     async connectMobile(): Promise<boolean> {
         if (!this.manager) await this.init();
 
+        const hasPermissions = await this.requestPermissions();
+        if (!hasPermissions) {
+            this.log('ERR', 'Bluetooth permissions denied');
+            return false;
+        }
+
         return new Promise((resolve) => {
+            let timeoutId: any;
+            let resolved = false;
+
             this.log('INFO', 'Scanning for vLinker (Native)...');
 
             this.manager.startDeviceScan(null, null, (error: any, device: any) => {
                 if (error) {
-                    this.log('ERR', `Scan error: ${error.message}`);
-                    resolve(false);
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeoutId);
+                        this.log('ERR', `Scan error: ${error.message}`);
+                        resolve(false);
+                    }
                     return;
                 }
 
-                if (device.name?.includes('vLinker') || device.name?.includes('VGATE')) {
-                    this.manager.stopDeviceScan();
-                    this.log('INFO', `Found ${device.name}, connecting...`);
+                const name = device?.name || device?.localName || '';
+                if (name.includes('vLinker') || name.includes('VGATE')) {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeoutId);
+                        this.manager.stopDeviceScan();
+                        this.log('INFO', `Found ${name}, connecting...`);
 
-                    device.connect()
-                        .then((device: any) => device.discoverAllServicesAndCharacteristics())
-                        .then((device: any) => {
-                            this.device = device;
-                            this.log('INFO', 'Connected to vLinker!');
-                            resolve(true);
-                        })
-                        .catch((e: any) => {
-                            this.log('ERR', `Connect failed: ${e.message}`);
-                            resolve(false);
-                        });
+                        device.connect()
+                            .then((device: any) => device.discoverAllServicesAndCharacteristics())
+                            .then((device: any) => {
+                                this.device = device;
+                                this.log('INFO', 'Connected to vLinker!');
+                                resolve(true);
+                            })
+                            .catch((e: any) => {
+                                this.log('ERR', `Connect failed: ${e.message}`);
+                                resolve(false);
+                            });
+                    }
                 }
             });
 
             // Timeout scan after 10s
-            setTimeout(() => {
-                this.manager.stopDeviceScan();
+            timeoutId = setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    this.manager.stopDeviceScan();
+                    this.log('ERR', 'Scan timeout - no device found');
+                    resolve(false);
+                }
             }, 10000);
         });
     }
