@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { 
-  Message, 
-  MechanicResponse, 
-  VinData, 
+import type {
+  Message,
+  MechanicResponse,
+  VinData,
   MediaInput,
   ObdScannerState,
-  LiveData 
+  LiveData
 } from '@/shared/mechanic-types';
 import { StorageService } from '@/lib/services/storage-service';
 import { getMechanicAdvice } from '@/lib/services/gemini-service';
 import { decodeVin } from '@/lib/services/vin-service';
+import { obdService } from '@/lib/services/obd-service';
 import { DEMO_PROMPT } from '@/constants/service-functions';
 
 const initialLiveData: LiveData = {
@@ -35,21 +36,21 @@ export function useMechanicState() {
   const [currentJob, setCurrentJob] = useState<MechanicResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(true);
-  
+
   // Input state
   const [input, setInput] = useState(DEMO_PROMPT);
   const [selectedMedia, setSelectedMedia] = useState<MediaInput | null>(null);
-  
+
   // VIN state
   const [vinInput, setVinInput] = useState('');
   const [isDecoding, setIsDecoding] = useState(false);
   const [decodedVehicle, setDecodedVehicle] = useState<VinData | null>(null);
-  
+
   // OBD state
   const [obdState, setObdState] = useState<ObdScannerState>(initialObdState);
   const [terminalInput, setTerminalInput] = useState('');
   const [showTerminal, setShowTerminal] = useState(false);
-  
+
   // UI state
   const [activeView, setActiveView] = useState<'workspace' | 'docs'>('workspace');
   const [showServiceGrid, setShowServiceGrid] = useState(false);
@@ -65,13 +66,13 @@ export function useMechanicState() {
         StorageService.getCurrentJob(),
         StorageService.getApiKey(),
       ]);
-      
+
       setShowDisclaimer(!disclaimerAccepted);
       if (savedMessages.length > 0) setMessages(savedMessages);
       if (savedJob) setCurrentJob(savedJob);
       if (savedApiKey) setApiKey(savedApiKey);
     };
-    
+
     loadData();
   }, []);
 
@@ -88,6 +89,64 @@ export function useMechanicState() {
       StorageService.saveCurrentJob(currentJob);
     }
   }, [currentJob]);
+
+  // OBD Logging Implementation
+  const addLog = useCallback((type: 'TX' | 'RX' | 'INFO' | 'ERR', message: string) => {
+    setObdState(prev => ({
+      ...prev,
+      logs: [...prev.logs, { type, message, timestamp: Date.now() }].slice(-50)
+    }));
+  }, []);
+
+  useEffect(() => {
+    obdService.setLogHandler(addLog);
+  }, [addLog]);
+
+  // Handle OBD Polling
+  useEffect(() => {
+    let interval: any;
+    if (obdState.isConnected) {
+      interval = setInterval(async () => {
+        try {
+          const data = await obdService.pollData();
+          setObdState(prev => ({
+            ...prev,
+            liveData: {
+              ...prev.liveData,
+              rpm: data.rpm,
+              coolantTemp: data.temp,
+              voltage: data.volt,
+            }
+          }));
+        } catch (e) {
+          console.error('Polling error:', e);
+        }
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [obdState.isConnected]);
+
+  // OBD Connection Actions
+  const handleObdConnect = useCallback(async () => {
+    setObdState(prev => ({ ...prev, isConnecting: true }));
+    try {
+      const success = await obdService.connect();
+      setObdState(prev => ({
+        ...prev,
+        isConnected: success,
+        isConnecting: false,
+        deviceName: success ? (obdService as any).device?.name || 'vLinker MC+' : null
+      }));
+    } catch (error) {
+      addLog('ERR', 'Bluetooth connection failed');
+      setObdState(prev => ({ ...prev, isConnecting: false }));
+    }
+  }, [addLog]);
+
+  const handleSendObdCommand = useCallback(async (cmd: string) => {
+    if (!obdState.isConnected) return;
+    await obdService.sendCommand(cmd);
+  }, [obdState.isConnected]);
 
   // Accept disclaimer
   const acceptDisclaimer = useCallback(async () => {
@@ -107,17 +166,17 @@ export function useMechanicState() {
     setShowServiceGrid(false);
     setInput(DEMO_PROMPT);
     setActiveView('workspace');
-    
+
     await StorageService.clearAll();
   }, []);
 
   // Handle VIN decode
   const handleVinDecode = useCallback(async () => {
     if (!vinInput.trim()) return;
-    
+
     setIsDecoding(true);
     setDecodedVehicle(null);
-    
+
     try {
       const data = await decodeVin(vinInput);
       if (data) {
@@ -138,10 +197,10 @@ export function useMechanicState() {
 
   // Handle service function click
   const handleServiceClick = useCallback((serviceLabel: string) => {
-    const vehicleCtx = decodedVehicle 
+    const vehicleCtx = decodedVehicle
       ? `${decodedVehicle.year} ${decodedVehicle.make} ${decodedVehicle.model}`
       : (input !== DEMO_PROMPT ? input.split(',')[0] : "mobil ini");
-    
+
     const prompt = `Lakukan prosedur ${serviceLabel} untuk ${vehicleCtx}. Berikan Command HEX UDS/ELM327 jika ada (vLinker MC+), atau langkah manual.`;
     setInput(prompt);
     setShowServiceGrid(false);
@@ -153,10 +212,10 @@ export function useMechanicState() {
     if (isLoading) return;
 
     const userText = input.trim();
-    const mediaType = selectedMedia 
-      ? (selectedMedia.mimeType.startsWith('image') ? 'image' : 'audio') 
+    const mediaType = selectedMedia
+      ? (selectedMedia.mimeType.startsWith('image') ? 'image' : 'audio')
       : undefined;
-    
+
     let liveDataCtx = "";
     if (obdState.isConnected) {
       liveDataCtx = `\n[LIVE OBD DATA]: RPM=${obdState.liveData.rpm}, Temp=${obdState.liveData.coolantTemp}C, Load=${obdState.liveData.load}%, Volt=${obdState.liveData.voltage}V.`;
@@ -167,7 +226,7 @@ export function useMechanicState() {
     setInput('');
     const tempMedia = selectedMedia;
     setSelectedMedia(null);
-    
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -176,7 +235,7 @@ export function useMechanicState() {
       mediaType: mediaType,
       timestamp: new Date()
     };
-    
+
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
 
@@ -187,7 +246,7 @@ export function useMechanicState() {
       const result = await getMechanicAdvice(compositePrompt, tempMedia, apiKey);
       setCurrentJob(result);
       setActiveView('workspace');
-      
+
       if (result.obd_hex_commands && result.obd_hex_commands.length > 0) {
         setShowTerminal(true);
       }
@@ -199,7 +258,7 @@ export function useMechanicState() {
         data: result,
         timestamp: new Date()
       };
-      
+
       setMessages(prev => [...prev, aiMsg]);
     } catch (error: any) {
       console.error('Submit error:', error);
@@ -221,14 +280,6 @@ export function useMechanicState() {
     }
   }, [input, selectedMedia, isLoading, obdState, apiKey]);
 
-  // Add OBD log
-  const addLog = useCallback((type: 'TX' | 'RX' | 'INFO' | 'ERR', message: string) => {
-    setObdState(prev => ({
-      ...prev,
-      logs: [...prev.logs, { type, message, timestamp: Date.now() }].slice(-50)
-    }));
-  }, []);
-
   return {
     // State
     messages,
@@ -247,7 +298,7 @@ export function useMechanicState() {
     showServiceGrid,
     showSettings,
     apiKey,
-    
+
     // Setters
     setInput,
     setSelectedMedia,
@@ -261,7 +312,7 @@ export function useMechanicState() {
     setCurrentJob,
     setShowSettings,
     setApiKey,
-    
+
     // Actions
     acceptDisclaimer,
     clearHistory,
@@ -269,5 +320,7 @@ export function useMechanicState() {
     handleServiceClick,
     handleSubmit,
     addLog,
+    handleObdConnect,
+    handleSendObdCommand,
   };
 }

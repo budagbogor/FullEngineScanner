@@ -51,8 +51,8 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
     "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "ITSAppUsesNonExemptEncryption": false
+    }
   },
   android: {
     adaptiveIcon: {
@@ -64,7 +64,15 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: [
+      "POST_NOTIFICATIONS",
+      "BLUETOOTH",
+      "BLUETOOTH_ADMIN",
+      "BLUETOOTH_SCAN",
+      "BLUETOOTH_CONNECT",
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_FINE_LOCATION"
+    ],
     intentFilters: [
       {
         action: "VIEW",
@@ -86,6 +94,14 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    [
+      "react-native-ble-plx",
+      {
+        "isBackgroundEnabled": false,
+        "modes": ["peripheral", "central"],
+        "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to use Bluetooth."
+      }
+    ],
     [
       "expo-audio",
       {

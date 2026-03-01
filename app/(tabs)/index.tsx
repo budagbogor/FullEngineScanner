@@ -2,12 +2,12 @@ import React, { useRef, useEffect, useState } from 'react';
 import { View, ScrollView, Text, Alert, Platform, TouchableOpacity } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ScreenContainer } from '@/components/screen-container';
-import { 
-  DisclaimerModal, 
-  Header, 
-  ChatMessage, 
-  ServiceGrid, 
-  ObdTerminal, 
+import {
+  DisclaimerModal,
+  Header,
+  ChatMessage,
+  ServiceGrid,
+  ObdTerminal,
   InputArea,
   JobCard,
   Documentation,
@@ -21,7 +21,7 @@ export default function WorkspaceScreen() {
   const { isDesktop, isMobile } = useResponsive();
   const messagesEndRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  
+
   // Recording and listening states (simplified for now)
   const [isListening, setIsListening] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -75,29 +75,21 @@ export default function WorkspaceScreen() {
     // TODO: Stop recording and process audio
   };
 
-  // Handle OBD connect (placeholder - needs Bluetooth)
-  const handleObdConnect = () => {
-    if (Platform.OS === 'web') {
-      Alert.alert('Info', 'OBD connection tersedia di aplikasi mobile dengan Bluetooth.');
-    } else {
-      state.setObdState(prev => ({ ...prev, isConnecting: true }));
-      // TODO: Implement Bluetooth connection
-      setTimeout(() => {
-        state.setObdState(prev => ({ ...prev, isConnecting: false }));
-        Alert.alert('Info', 'Fitur OBD memerlukan perangkat vLinker MC+ yang terhubung via Bluetooth.');
-      }, 2000);
+  // Handle OBD connect
+  const handleObdConnect = async () => {
+    if (Platform.OS === 'web' && !(navigator as any).bluetooth) {
+      Alert.alert('Info', 'Browser ini tidak mendukung Web Bluetooth. Gunakan Chrome/Edge.');
+      return;
     }
+    await state.handleObdConnect();
   };
 
   // Handle terminal command
-  const handleSendCommand = () => {
+  const handleSendCommand = async () => {
     if (!state.terminalInput.trim()) return;
-    state.addLog('TX', state.terminalInput.toUpperCase());
+    const cmd = state.terminalInput.toUpperCase();
     state.setTerminalInput('');
-    // Simulate response
-    setTimeout(() => {
-      state.addLog('RX', 'OK');
-    }, 500);
+    await state.handleSendObdCommand(cmd);
   };
 
   // Handle HEX load from job card
@@ -122,24 +114,24 @@ export default function WorkspaceScreen() {
   if (isDesktop) {
     return (
       <ScreenContainer containerClassName="bg-background">
-        <DisclaimerModal 
-          visible={state.showDisclaimer} 
-          onAccept={state.acceptDisclaimer} 
+        <DisclaimerModal
+          visible={state.showDisclaimer}
+          onAccept={state.acceptDisclaimer}
         />
-        
+
         <View className="flex-1 flex-row">
           {/* Sidebar */}
           <View className="w-[400px] border-r border-border bg-surface flex-col">
-            <Header 
+            <Header
               isConnected={state.obdState.isConnected}
               hasHistory={state.messages.length > 0 || state.currentJob !== null}
               hasApiKey={!!state.apiKey}
               onClearHistory={handleClearHistory}
               onOpenSettings={() => state.setShowSettings(true)}
             />
-            
+
             {/* Chat Messages */}
-            <ScrollView 
+            <ScrollView
               ref={scrollViewRef}
               className="flex-1 p-4"
               showsVerticalScrollIndicator={false}
@@ -152,19 +144,19 @@ export default function WorkspaceScreen() {
                   </Text>
                 </View>
               )}
-              
+
               {state.messages.map((msg) => (
-                <ChatMessage 
-                  key={msg.id} 
-                  message={msg} 
+                <ChatMessage
+                  key={msg.id}
+                  message={msg}
                   onLoadHex={handleLoadHex}
                 />
               ))}
-              
+
               {state.isLoading && (
                 <Text className="text-muted text-xs p-4">AI Engineer is analyzing protocol...</Text>
               )}
-              
+
               <View ref={messagesEndRef} />
             </ScrollView>
 
@@ -204,7 +196,7 @@ export default function WorkspaceScreen() {
 
             {/* Navigation */}
             <View className="p-4 border-t border-border flex-row gap-2">
-              <TouchableOpacity 
+              <TouchableOpacity
                 className={`flex-1 py-2 rounded items-center ${state.activeView === 'workspace' ? 'bg-primary' : 'bg-surface'}`}
                 onPress={() => state.setActiveView('workspace')}
                 activeOpacity={0.7}
@@ -213,7 +205,7 @@ export default function WorkspaceScreen() {
                   Workspace
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className={`flex-1 py-2 rounded items-center ${state.activeView === 'docs' ? 'bg-surface border border-border' : 'bg-surface'}`}
                 onPress={() => state.setActiveView('docs')}
                 activeOpacity={0.7}
@@ -270,9 +262,9 @@ export default function WorkspaceScreen() {
   // Mobile layout
   return (
     <ScreenContainer containerClassName="bg-background" edges={['top', 'left', 'right']}>
-      <DisclaimerModal 
-        visible={state.showDisclaimer} 
-        onAccept={state.acceptDisclaimer} 
+      <DisclaimerModal
+        visible={state.showDisclaimer}
+        onAccept={state.acceptDisclaimer}
       />
 
       {/* Show Job Card or Chat */}
@@ -280,7 +272,7 @@ export default function WorkspaceScreen() {
         <View className="flex-1">
           {/* Back Button */}
           <View className="p-4 border-b border-border bg-surface flex-row items-center">
-            <View 
+            <View
               className="flex-row items-center"
               onTouchEnd={() => state.setCurrentJob(null)}
             >
@@ -294,7 +286,7 @@ export default function WorkspaceScreen() {
         <View className="flex-1">
           {/* Back Button */}
           <View className="p-4 border-b border-border bg-surface flex-row items-center">
-            <View 
+            <View
               className="flex-row items-center"
               onTouchEnd={() => state.setActiveView('workspace')}
             >
@@ -306,16 +298,16 @@ export default function WorkspaceScreen() {
         </View>
       ) : (
         <View className="flex-1">
-          <Header 
+          <Header
             isConnected={state.obdState.isConnected}
             hasHistory={state.messages.length > 0 || state.currentJob !== null}
             hasApiKey={!!state.apiKey}
             onClearHistory={handleClearHistory}
             onOpenSettings={() => state.setShowSettings(true)}
           />
-          
+
           {/* Chat Messages */}
-          <ScrollView 
+          <ScrollView
             ref={scrollViewRef}
             className="flex-1 p-4"
             showsVerticalScrollIndicator={false}
@@ -328,19 +320,19 @@ export default function WorkspaceScreen() {
                 </Text>
               </View>
             )}
-            
+
             {state.messages.map((msg) => (
-              <ChatMessage 
-                key={msg.id} 
-                message={msg} 
+              <ChatMessage
+                key={msg.id}
+                message={msg}
                 onLoadHex={handleLoadHex}
               />
             ))}
-            
+
             {state.isLoading && (
               <Text className="text-muted text-xs p-4">AI Engineer is analyzing protocol...</Text>
             )}
-            
+
             <View ref={messagesEndRef} />
           </ScrollView>
 
@@ -380,7 +372,7 @@ export default function WorkspaceScreen() {
 
           {/* Navigation */}
           <View className="p-4 border-t border-border flex-row gap-2">
-            <TouchableOpacity 
+            <TouchableOpacity
               className={`flex-1 py-2 rounded items-center ${state.activeView === 'workspace' ? 'bg-primary' : 'bg-surface'}`}
               onPress={() => state.setActiveView('workspace')}
               activeOpacity={0.7}
@@ -389,7 +381,7 @@ export default function WorkspaceScreen() {
                 Workspace
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               className={`flex-1 py-2 rounded items-center ${state.activeView === 'docs' ? 'bg-surface border border-border' : 'bg-surface'}`}
               onPress={() => state.setActiveView('docs')}
               activeOpacity={0.7}
