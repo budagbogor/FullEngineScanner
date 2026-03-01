@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { MechanicResponse } from "../types";
+import { MechanicResponse } from "../shared/mechanic-types";
 
 // Unified Schema - LOCKED FOR STABILITY
 const mechanicResponseSchema: Schema = {
@@ -48,10 +48,10 @@ const mechanicResponseSchema: Schema = {
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
-              properties: { 
-                  brand: { type: Type.STRING }, 
-                  part_number: { type: Type.STRING }, 
-                  estimated_price: { type: Type.STRING, description: "Harga dalam Rupiah (Rp)" } 
+              properties: {
+                brand: { type: Type.STRING },
+                part_number: { type: Type.STRING },
+                estimated_price: { type: Type.STRING, description: "Harga dalam Rupiah (Rp)" }
               }
             }
           }
@@ -64,10 +64,10 @@ const mechanicResponseSchema: Schema = {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
-        properties: { 
-            part: { type: Type.STRING, description: "Nama baut spesifik (cth: Cylinder Head Bolt, Drain Plug)" }, 
-            value: { type: Type.STRING, description: "Nilai Newton Meter & ft-lb" }, 
-            size: { type: Type.STRING, description: "Ukuran Kepala Baut (cth: 14mm, 17mm)" } 
+        properties: {
+          part: { type: Type.STRING, description: "Nama baut spesifik (cth: Cylinder Head Bolt, Drain Plug)" },
+          value: { type: Type.STRING, description: "Nilai Newton Meter & ft-lb" },
+          size: { type: Type.STRING, description: "Ukuran Kepala Baut (cth: 14mm, 17mm)" }
         }
       }
     },
@@ -147,10 +147,14 @@ export interface MediaInput {
   mimeType: string; // e.g., 'image/jpeg' or 'audio/wav'
 }
 
-export const getMechanicAdvice = async (input: string, media?: MediaInput | null): Promise<MechanicResponse> => {
-  const apiKey = process.env.API_KEY;
+export const getMechanicAdvice = async (
+  input: string,
+  media?: MediaInput | null,
+  providedApiKey?: string | null
+): Promise<MechanicResponse> => {
+  const apiKey = providedApiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("API Key is missing");
+    throw new Error("API Key is missing. Please configure it in Settings.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -169,14 +173,13 @@ export const getMechanicAdvice = async (input: string, media?: MediaInput | null
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: { parts: parts },
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: mechanicResponseSchema,
-        temperature: 0.1, // LOW TEMPERATURE FOR MAXIMUM STABILITY & CONSISTENCY
-        thinkingConfig: { thinkingBudget: 0 } 
+        temperature: 0.1 // LOW TEMPERATURE FOR MAXIMUM STABILITY & CONSISTENCY
       },
     });
 

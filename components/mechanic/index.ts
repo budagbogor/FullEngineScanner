@@ -7,3 +7,8 @@ export { InputArea } from './input-area';
 export { JobCard } from './job-card';
 export { Documentation } from './documentation';
 export { SettingsModal } from './settings-modal';
+export { DiagnosticDashboard } from './diagnostic-dashboard';
+export { DataStreamGraph } from './data-stream-graph';
+export { ModuleList } from './module-list';
+export { AiCopilotScreen } from './ai-copilot-screen';
+export { ManualVehicleModal } from './manual-vehicle-modal';

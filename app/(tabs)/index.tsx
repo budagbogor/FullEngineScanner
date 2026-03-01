@@ -11,7 +11,12 @@ import {
   InputArea,
   JobCard,
   Documentation,
-  SettingsModal
+  SettingsModal,
+  DiagnosticDashboard,
+  DataStreamGraph,
+  ModuleList,
+  AiCopilotScreen,
+  ManualVehicleModal
 } from '@/components/mechanic';
 import { useMechanicState } from '@/hooks/use-mechanic-state';
 import { useResponsive } from '@/hooks/use-responsive';
@@ -97,6 +102,44 @@ export default function WorkspaceScreen() {
     state.setTerminalInput(hex);
     state.setShowTerminal(true);
   };
+
+  // Navigation Handler
+  const handleMenuSelect = (menuId: string) => {
+    switch (menuId) {
+      case 'intelligent_diagnose':
+        state.handleIntelligentDiagnose();
+        break;
+      case 'local_diagnose':
+        state.setShowManualVehicle(true);
+        break;
+      case 'active_test':
+        state.setShowServiceGrid(true); // Active tests open the Service Grid list
+        break;
+      case 'special_functions':
+        state.setShowServiceGrid(true);
+        break;
+      case 'data_stream':
+        state.setActiveView('data_stream');
+        break;
+      case 'ai_copilot':
+        state.setActiveView('ai_copilot');
+        break;
+    }
+  };
+
+  // Helper string for dashboard
+  const vehicleInfoString = state.decodedVehicle
+    ? `${state.decodedVehicle.year} ${state.decodedVehicle.make} ${state.decodedVehicle.model}`
+    : null;
+
+  // Format live data for Data System Graph
+  const livePids = [
+    { id: 'rpm', name: 'Engine RPM', value: state.obdState.liveData.rpm, unit: 'RPM', min: 0, max: 8000 },
+    { id: 'speed', name: 'Vehicle Speed', value: state.obdState.liveData.speed, unit: 'km/h', min: 0, max: 200 },
+    { id: 'coolant', name: 'Coolant Temp', value: state.obdState.liveData.coolantTemp, unit: '°C', min: -40, max: 150 },
+    { id: 'voltage', name: 'Battery Voltage', value: state.obdState.liveData.voltage, unit: 'V', min: 9, max: 16 },
+    { id: 'load', name: 'Engine Load', value: state.obdState.liveData.load, unit: '%', min: 0, max: 100 }
+  ];
 
   // Clear history with confirmation
   const handleClearHistory = () => {
@@ -197,12 +240,12 @@ export default function WorkspaceScreen() {
             {/* Navigation */}
             <View className="p-4 border-t border-border flex-row gap-2">
               <TouchableOpacity
-                className={`flex-1 py-2 rounded items-center ${state.activeView === 'workspace' ? 'bg-primary' : 'bg-surface'}`}
-                onPress={() => state.setActiveView('workspace')}
+                className={`flex-1 py-2 rounded items-center ${state.activeView === 'dashboard' ? 'bg-primary' : 'bg-surface'}`}
+                onPress={() => state.setActiveView('dashboard')}
                 activeOpacity={0.7}
               >
-                <Text className={`text-xs font-bold ${state.activeView === 'workspace' ? 'text-white' : 'text-muted'}`}>
-                  Workspace
+                <Text className={`text-xs font-bold ${state.activeView === 'dashboard' ? 'text-white' : 'text-muted'}`}>
+                  Dashboard
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -227,8 +270,43 @@ export default function WorkspaceScreen() {
 
             {state.activeView === 'docs' ? (
               <Documentation />
+            ) : state.activeView === 'dashboard' ? (
+              <DiagnosticDashboard
+                onMenuSelect={handleMenuSelect}
+                isConnected={state.obdState.isConnected}
+                vehicleInfo={vehicleInfoString}
+                onConnect={handleObdConnect}
+              />
             ) : state.currentJob ? (
               <JobCard data={state.currentJob} onLoadHex={handleLoadHex} />
+            ) : state.activeView === 'module_list' ? (
+              <ModuleList
+                modules={state.scannedModules}
+                isScanning={state.isScanningModules}
+                scanProgress={state.scanProgress}
+                onAnalyzeDtc={(dtc) => {
+                  const prompt = `Tolong analisa Fault Code ini: ${dtc.code} - ${dtc.description}. Apa penyebab dan solusinya? Buatkan wiring diagram keyword dan torque specs jika ada parts yang harus diganti.`;
+                  state.setInput(prompt);
+                  state.setActiveView('ai_copilot');
+                }}
+                onGenerateReport={() => {
+                  const faultyModules = state.scannedModules.filter(m => m.dtcCount > 0);
+                  const prompt = `Tolong buatkan Executive Diagnostic Report berdasarkan hasil scan All-System. Jumlah modul bermasalah: ${faultyModules.length}. Berikan plan perbaikan secara menyeluruh.`;
+                  state.setInput(prompt);
+                  state.setActiveView('ai_copilot');
+                }}
+                onBack={() => state.setActiveView('dashboard')}
+                onStartScan={state.handleIntelligentDiagnose}
+              />
+            ) : state.activeView === 'ai_copilot' || state.activeView === 'data_stream' ? (
+              <View className="flex-1 items-center justify-center p-8">
+                <Text className="text-xl font-bold text-foreground mb-4">
+                  {state.activeView === 'ai_copilot' ? 'AI Co-Pilot Workspace' : 'Data Stream Studio'}
+                </Text>
+                <Text className="text-muted text-center max-w-md">
+                  Gunakan menu Dashboard di sebelah kiri untuk navigasi fitur AI UDS/CAN.
+                </Text>
+              </View>
             ) : (
               <View className="flex-1 items-center justify-center">
                 <View className="w-24 h-24 rounded-full bg-surface border border-border items-center justify-center mb-6">
@@ -255,6 +333,12 @@ export default function WorkspaceScreen() {
           onApiKeyChange={state.setApiKey}
           currentApiKey={state.apiKey}
         />
+
+        <ManualVehicleModal
+          visible={state.showManualVehicle}
+          onClose={() => state.setShowManualVehicle(false)}
+          onSelect={state.handleManualVehicleSelect}
+        />
       </ScreenContainer>
     );
   }
@@ -268,7 +352,7 @@ export default function WorkspaceScreen() {
       />
 
       {/* Show Job Card or Chat */}
-      {state.currentJob && String(state.activeView) === 'workspace' ? (
+      {state.currentJob && String(state.activeView) === 'dashboard' ? (
         <View className="flex-1">
           {/* Back Button */}
           <View className="p-4 border-b border-border bg-surface flex-row items-center">
@@ -288,7 +372,7 @@ export default function WorkspaceScreen() {
           <View className="p-4 border-b border-border bg-surface flex-row items-center">
             <View
               className="flex-row items-center"
-              onTouchEnd={() => state.setActiveView('workspace')}
+              onTouchEnd={() => state.setActiveView('dashboard')}
             >
               <Text className="text-muted mr-1">←</Text>
               <Text className="text-muted">Back</Text>
@@ -306,56 +390,79 @@ export default function WorkspaceScreen() {
             onOpenSettings={() => state.setShowSettings(true)}
           />
 
-          {/* Chat Messages */}
-          <ScrollView
-            ref={scrollViewRef}
-            className="flex-1 p-4"
-            showsVerticalScrollIndicator={false}
-          >
-            {state.messages.length === 0 && (
-              <View className="flex-1 items-center justify-center py-20">
-                <Text className="text-6xl mb-4 opacity-30">🎤</Text>
-                <Text className="text-sm text-muted text-center max-w-[200px]">
-                  Support: ECU Coding, Active Test, 37+ Resets (via AI + vLinker MC+)
-                </Text>
-              </View>
-            )}
+          {/* Main Workspace Area (Mobile) */}
+          {state.activeView === 'dashboard' ? (
+            <DiagnosticDashboard
+              onMenuSelect={handleMenuSelect}
+              isConnected={state.obdState.isConnected}
+              vehicleInfo={vehicleInfoString}
+              onConnect={handleObdConnect}
+            />
+          ) : state.activeView === 'ai_copilot' ? (
+            <AiCopilotScreen
+              messages={state.messages}
+              isLoading={state.isLoading}
+              onBack={() => state.setActiveView('dashboard')}
+              onLoadHex={handleLoadHex}
+              messagesEndRef={messagesEndRef}
+              scrollViewRef={scrollViewRef}
+            />
+          ) : state.activeView === 'data_stream' ? (
+            <DataStreamGraph
+              pids={livePids}
+              isRecording={isRecording}
+              onToggleRecord={handleRecordStart} // Basic stub
+              onBack={() => state.setActiveView('dashboard')}
+            />
+          ) : state.activeView === 'module_list' ? (
+            <ModuleList
+              modules={state.scannedModules}
+              isScanning={state.isScanningModules}
+              scanProgress={state.scanProgress}
+              onAnalyzeDtc={(dtc) => {
+                const prompt = `Tolong analisa Fault Code ini: ${dtc.code} - ${dtc.description}. Apa penyebab dan solusinya?`;
+                state.setInput(prompt);
+                state.setActiveView('ai_copilot');
+              }}
+              onGenerateReport={() => {
+                const faultyModules = state.scannedModules.filter(m => m.dtcCount > 0);
+                const prompt = `Tolong buatkan Executive Diagnostic Report berdasarkan hasil scan All-System. Jumlah modul bermasalah: ${faultyModules.length}. Berikan plan perbaikan secara menyeluruh.`;
+                state.setInput(prompt);
+                state.setActiveView('ai_copilot');
+              }}
+              onBack={() => state.setActiveView('dashboard')}
+              onStartScan={state.handleIntelligentDiagnose}
+            />
+          ) : (
+            <View className="flex-1 items-center justify-center p-8">
+              <Text className="text-xl font-bold text-foreground mb-4">
+                Unknown View
+              </Text>
+            </View>
+          )}
 
-            {state.messages.map((msg) => (
-              <ChatMessage
-                key={msg.id}
-                message={msg}
-                onLoadHex={handleLoadHex}
-              />
-            ))}
-
-            {state.isLoading && (
-              <Text className="text-muted text-xs p-4">AI Engineer is analyzing protocol...</Text>
-            )}
-
-            <View ref={messagesEndRef} />
-          </ScrollView>
-
-          {/* Input Area */}
-          <InputArea
-            input={state.input}
-            onInputChange={state.setInput}
-            selectedMedia={state.selectedMedia}
-            onClearMedia={() => state.setSelectedMedia(null)}
-            decodedVehicle={state.decodedVehicle}
-            onClearVehicle={() => state.setDecodedVehicle(null)}
-            isLoading={state.isLoading}
-            isListening={isListening}
-            isRecording={isRecording}
-            obdState={state.obdState}
-            onSubmit={state.handleSubmit}
-            onVoicePress={handleVoicePress}
-            onRecordStart={handleRecordStart}
-            onRecordEnd={handleRecordEnd}
-            onImagePress={handleImagePress}
-            onServicePress={() => state.setShowServiceGrid(true)}
-            onObdConnect={handleObdConnect}
-          />
+          {/* Input Area (Only shown in Copilot or diagnostic modes) */}
+          {(state.activeView === 'ai_copilot') && (
+            <InputArea
+              input={state.input}
+              onInputChange={state.setInput}
+              selectedMedia={state.selectedMedia}
+              onClearMedia={() => state.setSelectedMedia(null)}
+              decodedVehicle={state.decodedVehicle}
+              onClearVehicle={() => state.setDecodedVehicle(null)}
+              isLoading={state.isLoading}
+              isListening={isListening}
+              isRecording={isRecording}
+              obdState={state.obdState}
+              onSubmit={state.handleSubmit}
+              onVoicePress={handleVoicePress}
+              onRecordStart={handleRecordStart}
+              onRecordEnd={handleRecordEnd}
+              onImagePress={handleImagePress}
+              onServicePress={() => state.setShowServiceGrid(true)}
+              onObdConnect={handleObdConnect}
+            />
+          )}
 
           {/* OBD Terminal */}
           <View className="px-4 pb-2">
@@ -373,12 +480,12 @@ export default function WorkspaceScreen() {
           {/* Navigation */}
           <View className="p-4 border-t border-border flex-row gap-2">
             <TouchableOpacity
-              className={`flex-1 py-2 rounded items-center ${state.activeView === 'workspace' ? 'bg-primary' : 'bg-surface'}`}
-              onPress={() => state.setActiveView('workspace')}
+              className={`flex-1 py-2 rounded items-center ${state.activeView === 'dashboard' ? 'bg-primary' : 'bg-surface'}`}
+              onPress={() => state.setActiveView('dashboard')}
               activeOpacity={0.7}
             >
-              <Text className={`text-xs font-bold ${state.activeView === 'workspace' ? 'text-white' : 'text-muted'}`}>
-                Workspace
+              <Text className={`text-xs font-bold ${state.activeView === 'dashboard' ? 'text-white' : 'text-muted'}`}>
+                Dashboard
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -405,6 +512,12 @@ export default function WorkspaceScreen() {
         onClose={() => state.setShowSettings(false)}
         onApiKeyChange={state.setApiKey}
         currentApiKey={state.apiKey}
+      />
+
+      <ManualVehicleModal
+        visible={state.showManualVehicle}
+        onClose={() => state.setShowManualVehicle(false)}
+        onSelect={state.handleManualVehicleSelect}
       />
     </ScreenContainer>
   );

@@ -12,6 +12,7 @@ import { getMechanicAdvice } from '@/lib/services/gemini-service';
 import { decodeVin } from '@/lib/services/vin-service';
 import { obdService } from '@/lib/services/obd-service';
 import { DEMO_PROMPT } from '@/constants/service-functions';
+import { EcuModule } from '@/components/mechanic/module-list';
 
 const initialLiveData: LiveData = {
   rpm: 0,
@@ -52,10 +53,19 @@ export function useMechanicState() {
   const [showTerminal, setShowTerminal] = useState(false);
 
   // UI state
-  const [activeView, setActiveView] = useState<'workspace' | 'docs'>('workspace');
+  const [activeView, setActiveView] = useState<'dashboard' | 'ai_copilot' | 'data_stream' | 'docs' | 'module_list'>('dashboard');
   const [showServiceGrid, setShowServiceGrid] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showManualVehicle, setShowManualVehicle] = useState(false);
   const [apiKey, setApiKey] = useState('');
+
+  // Diagnostic State (Topology)
+  const [scannedModules, setScannedModules] = useState<EcuModule[]>([]);
+  const [isScanningModules, setIsScanningModules] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+
+  // Data Stream State
+  const [isRecording, setIsRecording] = useState(false);
 
   // Load persisted data on mount
   useEffect(() => {
@@ -103,28 +113,37 @@ export function useMechanicState() {
   }, [addLog]);
 
   // Handle OBD Polling
-  useEffect(() => {
-    let interval: any;
-    if (obdState.isConnected) {
-      interval = setInterval(async () => {
-        try {
-          const data = await obdService.pollData();
-          setObdState(prev => ({
-            ...prev,
-            liveData: {
-              ...prev.liveData,
-              rpm: data.rpm,
-              coolantTemp: data.temp,
-              voltage: data.volt,
-            }
-          }));
-        } catch (e) {
-          console.error('Polling error:', e);
-        }
-      }, 5000);
+  const handleRecordStart = useCallback(() => {
+    if (isRecording) {
+      obdService.stopPolling();
+      setIsRecording(false);
+      addLog('INFO', 'Data Stream polling stopped.');
+    } else {
+      setIsRecording(true);
+      addLog('INFO', 'Data Stream polling started.');
+      obdService.startPolling((data) => {
+        setObdState(prev => ({
+          ...prev,
+          liveData: {
+            ...prev.liveData,
+            rpm: data.rpm,
+            coolantTemp: data.temp,
+            voltage: data.volt,
+            speed: data.speed,
+            load: data.load
+          }
+        }));
+      }, 1000); // 1 second intervals
     }
-    return () => clearInterval(interval);
-  }, [obdState.isConnected]);
+  }, [isRecording, addLog]);
+
+  const handleRecordEnd = useCallback(() => {
+    if (isRecording) {
+      obdService.stopPolling();
+      setIsRecording(false);
+      addLog('INFO', 'Data Stream polling stopped.');
+    }
+  }, [isRecording, addLog]);
 
   // OBD Connection Actions
   const handleObdConnect = useCallback(async () => {
@@ -165,7 +184,7 @@ export function useMechanicState() {
     setTerminalInput('');
     setShowServiceGrid(false);
     setInput(DEMO_PROMPT);
-    setActiveView('workspace');
+    setActiveView('dashboard');
 
     await StorageService.clearAll();
   }, []);
@@ -206,6 +225,69 @@ export function useMechanicState() {
     setShowServiceGrid(false);
   }, [decodedVehicle, input]);
 
+  // Handle Intelligent Diagnose
+  const handleIntelligentDiagnose = useCallback(async () => {
+    setActiveView('module_list');
+    setIsScanningModules(true);
+    setScanProgress(0);
+    setScannedModules([]);
+
+    // Mock scan sequence mapping standard UDS addresses
+    const targetModules = [
+      { id: '0x07E0', name: 'Engine Control Module (ECM)' },
+      { id: '0x07E1', name: 'Transmission Control Module (TCM)' },
+      { id: '0x07E2', name: 'Anti-lock Braking System (ABS)' },
+      { id: '0x07E3', name: 'Supplemental Restraint System (SRS)' },
+      { id: '0x07E4', name: 'Body Control Module (BCM)' }
+    ];
+
+    try {
+      // Switch network if OBD is connected
+      if (obdState.isConnected) {
+        addLog('INFO', 'Starting All-System Topology Scan...');
+        await obdService.switchNetwork('STP 33'); // HS-CAN
+      }
+
+      for (let i = 0; i < targetModules.length; i++) {
+        const mod = targetModules[i];
+        setScannedModules(prev => [...prev, { ...mod, status: 'scanning', dtcCount: 0 }]);
+
+        // Mock delay for pinging ECU
+        await new Promise(r => setTimeout(r, 1200));
+
+        let dtcCount = 0;
+        let status: 'clean' | 'faulty' | 'unknown' = 'unknown';
+
+        // If connected, do real UDS read (simulated real in service)
+        if (obdState.isConnected) {
+          const dtcs = await obdService.readUdsDtcs(); // Requires modifying target address in real life
+          dtcCount = dtcs.length;
+          status = dtcCount > 0 ? 'faulty' : 'clean';
+        } else {
+          // Complete Mock for UI
+          const isFaulty = Math.random() > 0.7; // 30% chance of fault
+          dtcCount = isFaulty ? Math.floor(Math.random() * 3) + 1 : 0;
+          status = dtcCount > 0 ? 'faulty' : 'clean';
+        }
+
+        setScannedModules(prev =>
+          prev.map(p => p.id === mod.id ? { ...p, status, dtcCount } : p)
+        );
+
+        setScanProgress(((i + 1) / targetModules.length) * 100);
+      }
+    } catch (e) {
+      console.error('Scan failed', e);
+      addLog('ERR', 'Topology scan aborted');
+    } finally {
+      setIsScanningModules(false);
+      setScanProgress(100);
+      if (obdState.isConnected) {
+        addLog('INFO', 'Topology Scan Complete');
+      }
+    }
+  }, [obdState.isConnected, addLog]);
+
   // Submit query
   const handleSubmit = useCallback(async () => {
     if (!input.trim() && !selectedMedia) return;
@@ -245,7 +327,7 @@ export function useMechanicState() {
       }
       const result = await getMechanicAdvice(compositePrompt, tempMedia, apiKey);
       setCurrentJob(result);
-      setActiveView('workspace');
+      setActiveView('ai_copilot');
 
       if (result.obd_hex_commands && result.obd_hex_commands.length > 0) {
         setShowTerminal(true);
@@ -280,6 +362,20 @@ export function useMechanicState() {
     }
   }, [input, selectedMedia, isLoading, obdState, apiKey]);
 
+  const handleManualVehicleSelect = (vehicle: { make: string; model: string; year: string }) => {
+    setDecodedVehicle({
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      bodyClass: 'Unknown',
+      engine: 'Unknown',
+      fuel: 'Unknown'
+    });
+    setShowManualVehicle(false);
+    addLog('INFO', `Manual Vehicle Selected: ${vehicle.year} ${vehicle.make} ${vehicle.model}`);
+    setActiveView('dashboard');
+  };
+
   return {
     // State
     messages,
@@ -297,7 +393,12 @@ export function useMechanicState() {
     activeView,
     showServiceGrid,
     showSettings,
+    showManualVehicle,
     apiKey,
+    scannedModules,
+    isScanningModules,
+    scanProgress,
+    isRecording,
 
     // Setters
     setInput,
@@ -311,15 +412,20 @@ export function useMechanicState() {
     setShowServiceGrid,
     setCurrentJob,
     setShowSettings,
+    setShowManualVehicle,
     setApiKey,
 
     // Actions
     acceptDisclaimer,
     clearHistory,
     handleVinDecode,
+    handleManualVehicleSelect,
     handleServiceClick,
+    handleIntelligentDiagnose,
     handleSubmit,
     addLog,
+    handleRecordStart,
+    handleRecordEnd,
     handleObdConnect,
     handleSendObdCommand,
   };

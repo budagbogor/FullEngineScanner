@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@google/genai": "^1.43.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/bottom-tabs": "^7.8.12",
     "@react-navigation/elements": "^2.9.2",
@@ -79,6 +80,8 @@
     "@types/node": "^22.19.3",
     "@types/qrcode": "^1.5.6",
     "@types/react": "~19.1.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.8",
