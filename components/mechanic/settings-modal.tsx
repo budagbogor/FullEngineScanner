@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, ScrollView, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, ScrollView, Linking, ActivityIndicator, Pressable } from 'react-native';
 import { StorageService } from '@/lib/services/storage-service';
 import type { AppSettings, AIProvider } from '@/shared/mechanic-types';
 import { testAiConnection } from '@/lib/services/gemini-service';
@@ -57,8 +57,16 @@ export function SettingsModal({ visible, onClose, onSettingsChange, currentSetti
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-foreground/20 backdrop-blur-sm justify-center items-center p-4">
-        <View className="bg-surface w-full max-w-md rounded-2xl overflow-hidden border border-border shadow-2xl">
+      <TouchableOpacity 
+        activeOpacity={1}
+        className="flex-1 bg-foreground/20 backdrop-blur-sm justify-center items-center p-4"
+        onPress={onClose}
+      >
+        <TouchableOpacity 
+          activeOpacity={1}
+          className="bg-surface w-full max-w-md max-h-[90%] rounded-2xl overflow-hidden border border-border shadow-2xl flex-col"
+          onPress={(e) => e.stopPropagation()}
+        >
           {/* Header */}
           <View className="p-4 border-b border-border flex-row justify-between items-center">
             <Text className="text-lg font-bold text-foreground">⚙️ Pengaturan</Text>
@@ -238,8 +246,8 @@ export function SettingsModal({ visible, onClose, onSettingsChange, currentSetti
               <Text className="text-sm font-bold text-white">Simpan</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 }
