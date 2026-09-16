@@ -57,8 +57,8 @@ export function SettingsModal({ visible, onClose, onSettingsChange, currentSetti
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/80 justify-center items-center p-4">
-        <View className="bg-surface w-full max-w-md rounded-2xl overflow-hidden border border-border">
+      <View className="flex-1 bg-foreground/20 backdrop-blur-sm justify-center items-center p-4">
+        <View className="bg-surface w-full max-w-md rounded-2xl overflow-hidden border border-border shadow-2xl">
           {/* Header */}
           <View className="p-4 border-b border-border flex-row justify-between items-center">
             <Text className="text-lg font-bold text-foreground">⚙️ Pengaturan</Text>

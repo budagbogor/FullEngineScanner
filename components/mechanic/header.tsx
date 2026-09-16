@@ -12,7 +12,7 @@ interface HeaderProps {
 
 export function Header({ isConnected, hasHistory, hasApiKey, onClearHistory, onOpenSettings }: HeaderProps) {
   return (
-    <View className="px-4 py-3 border-b border-border bg-surface flex-row items-center justify-between">
+    <View className="px-4 py-3 border-b border-border bg-surface flex-row items-center justify-between shadow-sm z-10">
       <View className="flex-row items-center gap-3">
         {/* Logo */}
         <View className="w-10 h-10 rounded-lg overflow-hidden shadow-lg">

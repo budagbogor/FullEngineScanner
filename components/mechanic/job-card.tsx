@@ -75,7 +75,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
       <View className="bg-primary/10 border-b border-primary/20 p-4">
         <View className={`flex-row items-center gap-4 ${isDesktop ? 'max-w-4xl mx-auto' : ''}`}>
           {/* Vehicle Image */}
-          <View className="w-24 h-16 bg-surface rounded-lg overflow-hidden border border-border">
+          <View className="w-24 h-16 bg-surface rounded-lg overflow-hidden border border-border shadow-sm">
             {!imgError ? (
               <Image
                 source={{ uri: vehicleImageUrl }}
@@ -115,7 +115,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
       <View className={`p-4 ${isDesktop ? 'max-w-4xl mx-auto' : ''}`}>
         {/* Cost Estimation */}
         {data.cost_estimation && (
-          <View className="bg-surface rounded-xl border border-border p-4 mb-6">
+          <View className="bg-surface rounded-xl border border-border p-4 mb-6 shadow-sm hover:shadow-md transition-shadow">
             <View className={`${isMobile ? 'flex-col gap-3' : 'flex-row'}`}>
               <View className={isMobile ? '' : 'flex-1'}>
                 <Text className="text-[10px] text-muted uppercase font-bold mb-1">Total Estimate</Text>
@@ -177,7 +177,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
                 <TouchableOpacity
                   key={idx}
                   onPress={() => setSelectedDtc(dtc)}
-                  className="bg-surface border border-border rounded p-2 mb-2 active:border-error/50"
+                  className="bg-surface border border-border rounded-lg p-3 mb-2 shadow-sm active:shadow-none transition-all active:border-error/50"
                 >
                   <View className="flex-row justify-between items-center mb-1">
                     <Text className="text-error font-bold font-mono text-sm">{dtc.code}</Text>
@@ -193,7 +193,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
         </View>
 
         {/* Technical Tabs */}
-        <View className="bg-surface border border-border rounded-xl overflow-hidden mb-6">
+        <View className="bg-surface border border-border rounded-2xl overflow-hidden mb-6 shadow-sm">
           {/* Tab Headers */}
           <ScrollView 
             horizontal 
@@ -382,7 +382,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
 
         {/* Engineering Mode */}
         {Array.isArray(data.obd_hex_commands) && data.obd_hex_commands.length > 0 && (
-          <View className="bg-surface border border-indigo/50 rounded-xl p-4 mb-6">
+          <View className="bg-surface border border-indigo/20 rounded-2xl p-5 mb-6 shadow-md">
             <View className="flex-row items-center mb-4">
               <Text className="text-indigo font-bold text-lg">💻 Engineering Mode</Text>
             </View>
@@ -447,8 +447,8 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
 
       {/* DTC Detail Modal */}
       {selectedDtc && (
-        <View className="absolute inset-0 bg-black/80 justify-center items-center p-4">
-          <View className="bg-surface border border-border rounded-2xl max-w-lg w-full p-6">
+        <View className="absolute inset-0 bg-foreground/20 backdrop-blur-sm justify-center items-center p-4">
+          <View className="bg-surface border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl">
             <View className="flex-row justify-between items-start mb-4">
               <View>
                 <Text className="text-error font-bold font-mono text-xl">{selectedDtc.code}</Text>

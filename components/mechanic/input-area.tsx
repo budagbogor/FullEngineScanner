@@ -43,7 +43,7 @@ export function InputArea({
   onObdConnect,
 }: InputAreaProps) {
   return (
-    <View className="p-4 border-t border-border bg-surface">
+    <View className="p-4 border-t border-border bg-surface shadow-md z-10">
       {/* Context Badges */}
       {(decodedVehicle || selectedMedia) && (
         <View className="flex-row flex-wrap gap-2 mb-3">

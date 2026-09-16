@@ -171,7 +171,7 @@ export default function WorkspaceScreen() {
 
         <View className="flex-1 flex-row">
           {/* Sidebar */}
-          <View className="w-[400px] border-r border-border bg-surface flex-col">
+          <View className="w-[400px] border-r border-border bg-surface flex-col shadow-2xl z-20">
             <Header
               isConnected={state.obdState.isConnected}
               hasHistory={state.messages.length > 0 || state.currentJob !== null}
