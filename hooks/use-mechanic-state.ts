@@ -5,7 +5,8 @@ import type {
   VinData,
   MediaInput,
   ObdScannerState,
-  LiveData
+  LiveData,
+  AppSettings
 } from '@/shared/mechanic-types';
 import { StorageService } from '@/lib/services/storage-service';
 import { getMechanicAdvice } from '@/lib/services/gemini-service';
@@ -57,7 +58,14 @@ export function useMechanicState() {
   const [showServiceGrid, setShowServiceGrid] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showManualVehicle, setShowManualVehicle] = useState(false);
-  const [apiKey, setApiKey] = useState('');
+  const [appSettings, setAppSettings] = useState<AppSettings>({
+    provider: 'gemini',
+    geminiApiKey: '',
+    sumopodApiKey: '',
+    sumopodBaseUrl: '',
+    sumopodModel: 'llama-3.1-8b',
+    saveScope: 'global',
+  });
 
   // Diagnostic State (Topology)
   const [scannedModules, setScannedModules] = useState<EcuModule[]>([]);
@@ -70,17 +78,17 @@ export function useMechanicState() {
   // Load persisted data on mount
   useEffect(() => {
     const loadData = async () => {
-      const [disclaimerAccepted, savedMessages, savedJob, savedApiKey] = await Promise.all([
+      const [disclaimerAccepted, savedMessages, savedJob, savedSettings] = await Promise.all([
         StorageService.isDisclaimerAccepted(),
         StorageService.getMessages(),
         StorageService.getCurrentJob(),
-        StorageService.getApiKey(),
+        StorageService.getSettings(),
       ]);
 
       setShowDisclaimer(!disclaimerAccepted);
       if (savedMessages.length > 0) setMessages(savedMessages);
       if (savedJob) setCurrentJob(savedJob);
-      if (savedApiKey) setApiKey(savedApiKey);
+      if (savedSettings) setAppSettings(savedSettings);
     };
 
     loadData();
@@ -322,10 +330,12 @@ export function useMechanicState() {
     setIsLoading(true);
 
     try {
-      if (!apiKey) {
+      const provider = appSettings.provider;
+      const key = provider === 'gemini' ? appSettings.geminiApiKey : appSettings.sumopodApiKey;
+      if (!key) {
         throw new Error('API_KEY_MISSING');
       }
-      const result = await getMechanicAdvice(compositePrompt, tempMedia, apiKey);
+      const result = await getMechanicAdvice(compositePrompt, tempMedia, appSettings);
       setCurrentJob(result);
       setActiveView('ai_copilot');
 
@@ -360,7 +370,7 @@ export function useMechanicState() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, selectedMedia, isLoading, obdState, apiKey]);
+  }, [input, selectedMedia, isLoading, obdState, appSettings]);
 
   const handleManualVehicleSelect = (vehicle: { make: string; model: string; year: string }) => {
     setDecodedVehicle({
@@ -394,7 +404,7 @@ export function useMechanicState() {
     showServiceGrid,
     showSettings,
     showManualVehicle,
-    apiKey,
+    appSettings,
     scannedModules,
     isScanningModules,
     scanProgress,
@@ -413,7 +423,7 @@ export function useMechanicState() {
     setCurrentJob,
     setShowSettings,
     setShowManualVehicle,
-    setApiKey,
+    setAppSettings,
 
     // Actions
     acceptDisclaimer,

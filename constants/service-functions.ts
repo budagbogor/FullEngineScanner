@@ -40,4 +40,5 @@ export const STORAGE_KEYS = {
   JOB: "mechanic_app_current_job",
   DISCLAIMER: "mechanic_app_disclaimer_accepted",
   API_KEY: "mechanic_app_gemini_api_key",
+  SETTINGS: "mechanic_app_settings",
 };

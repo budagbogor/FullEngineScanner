@@ -143,6 +143,13 @@ export default function WorkspaceScreen() {
 
   // Clear history with confirmation
   const handleClearHistory = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Hapus semua riwayat diagnosa dan reset workspace?')) {
+        state.clearHistory();
+      }
+      return;
+    }
+    
     Alert.alert(
       'Hapus Riwayat',
       'Hapus semua riwayat diagnosa dan reset workspace?',
@@ -168,7 +175,7 @@ export default function WorkspaceScreen() {
             <Header
               isConnected={state.obdState.isConnected}
               hasHistory={state.messages.length > 0 || state.currentJob !== null}
-              hasApiKey={!!state.apiKey}
+              hasApiKey={!!state.appSettings.geminiApiKey || !!state.appSettings.sumopodApiKey}
               onClearHistory={handleClearHistory}
               onOpenSettings={() => state.setShowSettings(true)}
             />
@@ -330,8 +337,8 @@ export default function WorkspaceScreen() {
         <SettingsModal
           visible={state.showSettings}
           onClose={() => state.setShowSettings(false)}
-          onApiKeyChange={state.setApiKey}
-          currentApiKey={state.apiKey}
+          onSettingsChange={state.setAppSettings}
+          currentSettings={state.appSettings}
         />
 
         <ManualVehicleModal
@@ -385,7 +392,7 @@ export default function WorkspaceScreen() {
           <Header
             isConnected={state.obdState.isConnected}
             hasHistory={state.messages.length > 0 || state.currentJob !== null}
-            hasApiKey={!!state.apiKey}
+            hasApiKey={!!state.appSettings.geminiApiKey || !!state.appSettings.sumopodApiKey}
             onClearHistory={handleClearHistory}
             onOpenSettings={() => state.setShowSettings(true)}
           />
@@ -510,8 +517,8 @@ export default function WorkspaceScreen() {
       <SettingsModal
         visible={state.showSettings}
         onClose={() => state.setShowSettings(false)}
-        onApiKeyChange={state.setApiKey}
-        currentApiKey={state.apiKey}
+        onSettingsChange={state.setAppSettings}
+        currentSettings={state.appSettings}
       />
 
       <ManualVehicleModal

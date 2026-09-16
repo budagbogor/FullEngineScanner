@@ -1,4 +1,4 @@
-import type { MechanicResponse, MediaInput } from '@/shared/mechanic-types';
+import type { MechanicResponse, MediaInput, AppSettings } from '@/shared/mechanic-types';
 
 const SYSTEM_INSTRUCTION = `
 Role:
@@ -145,60 +145,147 @@ const mechanicResponseSchema = {
 export const getMechanicAdvice = async (
   input: string,
   media?: MediaInput | null,
-  apiKey?: string
+  settings?: AppSettings
 ): Promise<MechanicResponse> => {
-  const key = apiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  const provider = settings?.provider || 'gemini';
+  const apiKey = provider === 'gemini' 
+    ? (settings?.geminiApiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY)
+    : settings?.sumopodApiKey;
 
-  if (!key) {
-    throw new Error("API Key is missing. Please set EXPO_PUBLIC_GEMINI_API_KEY");
+  if (!apiKey) {
+    throw new Error(`API Key is missing for provider ${provider}`);
   }
 
   try {
-    const parts: any[] = [{ text: input }];
+    if (provider === 'gemini') {
+      const parts: any[] = [{ text: input }];
 
-    if (media) {
-      const cleanData = media.data.replace(/^data:(image|audio)\/[a-z0-9.-]+;base64,/, "");
-      parts.push({
-        inlineData: {
-          mimeType: media.mimeType,
-          data: cleanData
+      if (media) {
+        const cleanData = media.data.replace(/^data:(image|audio)\/[a-z0-9.-]+;base64,/, "");
+        parts.push({
+          inlineData: {
+            mimeType: media.mimeType,
+            data: cleanData
+          }
+        });
+      }
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: mechanicResponseSchema,
+              temperature: 0.1,
+            },
+          }),
         }
-      });
-    }
+      );
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-      {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'API request failed');
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!text) throw new Error("No response from AI");
+
+      return JSON.parse(text) as MechanicResponse;
+
+    } else {
+      // Sumopod (OpenAI Compatible)
+      const messages: any[] = [
+        { role: "system", content: SYSTEM_INSTRUCTION },
+      ];
+
+      if (media) {
+        // OpenAI vision format
+        messages.push({
+          role: "user",
+          content: [
+            { type: "text", text: input },
+            {
+              type: "image_url",
+              image_url: { url: media.data }
+            }
+          ]
+        });
+      } else {
+        messages.push({ role: "user", content: input });
+      }
+
+      const baseUrl = (settings?.sumopodBaseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          contents: [{ parts }],
-          systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: mechanicResponseSchema,
-            temperature: 0.1,
-          },
+          model: settings?.sumopodModel || 'llama-3.1-8b',
+          messages: messages,
+          temperature: 0.1,
+          response_format: { type: "json_object" }, // Make sure it returns JSON
         }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'API request failed');
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error?.message || 'API request failed');
+      const data = await response.json();
+      const text = data.choices?.[0]?.message?.content;
+
+      if (!text) throw new Error("No response from AI");
+
+      // Sometimes models wrap json in markdown block, clean it up
+      const cleanText = text.replace(/```json\n?|\n?```/g, '');
+      return JSON.parse(cleanText) as MechanicResponse;
     }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!text) throw new Error("No response from AI");
-
-    return JSON.parse(text) as MechanicResponse;
-
   } catch (error) {
     console.error("Error fetching mechanic advice:", error);
     throw error;
+  }
+};
+
+export const testAiConnection = async (settings: AppSettings): Promise<boolean> => {
+  const provider = settings.provider;
+  const apiKey = provider === 'gemini' ? settings.geminiApiKey : settings.sumopodApiKey;
+  
+  if (!apiKey) throw new Error('API Key kosong');
+
+  try {
+    if (provider === 'gemini') {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "ping" }] }],
+          }),
+        }
+      );
+      return response.ok;
+    } else {
+      const baseUrl = (settings.sumopodBaseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/models`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      return response.ok;
+    }
+  } catch (error) {
+    return false;
   }
 };

@@ -18,8 +18,25 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
   const [selectedDtc, setSelectedDtc] = useState<DTCItem | null>(null);
 
   const getSearchableVehicle = () => {
-    if (!data.vehicle_info) return "";
-    return data.vehicle_info.split(' ').slice(0, 3).join(' ');
+    if (!data.vehicle_info) return "Unknown Vehicle";
+    let info = "";
+    if (typeof data.vehicle_info === 'string') {
+      info = data.vehicle_info;
+    } else if (typeof data.vehicle_info === 'object') {
+      info = Object.values(data.vehicle_info).filter(v => typeof v === 'string' || typeof v === 'number').join(' ');
+    } else {
+      info = String(data.vehicle_info);
+    }
+    return info.split(' ').slice(0, 3).join(' ');
+  };
+
+  const getDisplayVehicle = () => {
+    if (!data.vehicle_info) return "Unknown Vehicle";
+    if (typeof data.vehicle_info === 'string') return data.vehicle_info;
+    if (typeof data.vehicle_info === 'object') {
+      return Object.values(data.vehicle_info).filter(v => typeof v === 'string' || typeof v === 'number').join(' ');
+    }
+    return String(data.vehicle_info);
   };
 
   const cleanVehicleName = getSearchableVehicle();
@@ -79,7 +96,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
               Vehicle Identification
             </Text>
             <Text className="text-lg font-bold text-foreground leading-tight" numberOfLines={2}>
-              {data.vehicle_info}
+              {getDisplayVehicle()}
             </Text>
             <View className="flex-row gap-2 mt-1">
               <View className="bg-surface border border-border rounded px-1.5 py-0.5">
@@ -128,12 +145,19 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
                 📋 Expert Diagnosis
               </Text>
             </View>
-            {data.diagnosis.map((diag, idx) => (
+            {Array.isArray(data.diagnosis) && data.diagnosis.length > 0 ? data.diagnosis.map((diag, idx) => (
               <View key={idx} className="flex-row items-start bg-surface/50 p-2 rounded mb-2">
                 <Text className="text-primary mr-2">•</Text>
                 <Text className="text-muted text-sm flex-1">{diag}</Text>
               </View>
-            ))}
+            )) : typeof data.diagnosis === 'string' && (data.diagnosis as any).trim() !== '' ? (
+              <View className="flex-row items-start bg-surface/50 p-2 rounded mb-2">
+                <Text className="text-primary mr-2">•</Text>
+                <Text className="text-muted text-sm flex-1">{data.diagnosis as any}</Text>
+              </View>
+            ) : (
+              <Text className="text-muted text-xs italic">Data diagnosa belum tersedia.</Text>
+            )}
             {data.manual_summary && (
               <View className="mt-3 border-l-2 border-primary pl-3">
                 <Text className="text-muted italic text-sm">"{data.manual_summary}"</Text>
@@ -148,7 +172,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
                 ⚠️ DTC & TSB Analysis
               </Text>
             </View>
-            {data.dtc_list && data.dtc_list.length > 0 ? (
+            {Array.isArray(data.dtc_list) && data.dtc_list.length > 0 ? (
               data.dtc_list.map((dtc, idx) => (
                 <TouchableOpacity
                   key={idx}
@@ -201,7 +225,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
                 {/* Torque Specs */}
                 <View className={isDesktop ? 'flex-1' : 'mb-6'}>
                   <Text className="text-muted text-xs font-bold uppercase mb-3">🔩 Torque Specifications</Text>
-                  {data.torque_specs && data.torque_specs.length > 0 ? (
+                  {Array.isArray(data.torque_specs) && data.torque_specs.length > 0 ? (
                     data.torque_specs.map((spec, i) => (
                       <TouchableOpacity
                         key={i}
@@ -221,7 +245,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
                 {/* Maintenance Data */}
                 <View className={isDesktop ? 'flex-1' : ''}>
                   <Text className="text-muted text-xs font-bold uppercase mb-3">🛢️ Fluids & Maintenance</Text>
-                  {data.maintenance_data && data.maintenance_data.map((item, i) => (
+                  {Array.isArray(data.maintenance_data) && data.maintenance_data.map((item, i) => (
                     <View key={i} className="flex-row justify-between items-center bg-background p-2 rounded mb-1 border border-border">
                       <View className="flex-1">
                         <Text className="text-foreground text-xs font-bold">{item.item}</Text>
@@ -240,7 +264,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
                 <View className={isDesktop ? 'flex-1' : 'mb-6'}>
                   <Text className="text-muted text-xs font-bold uppercase mb-3">🔧 Required Tools (SST)</Text>
                   <View className="flex-row flex-wrap">
-                    {data.tools_list && data.tools_list.map((tool, i) => (
+                    {Array.isArray(data.tools_list) && data.tools_list.map((tool, i) => (
                       <TouchableOpacity
                         key={i}
                         onPress={() => openSearch(tool, 'tool')}
@@ -255,9 +279,9 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
                 {/* Parts */}
                 <View className={isDesktop ? 'flex-1' : ''}>
                   <Text className="text-muted text-xs font-bold uppercase mb-3">🛒 Parts Suggestion</Text>
-                  {data.maintenance_data && data.maintenance_data.some(i => i.aftermarket_parts && i.aftermarket_parts.length > 0) ? (
+                  {Array.isArray(data.maintenance_data) && data.maintenance_data.some(i => Array.isArray(i.aftermarket_parts) && i.aftermarket_parts.length > 0) ? (
                     data.maintenance_data.map((item, i) => (
-                      item.aftermarket_parts && item.aftermarket_parts.length > 0 && (
+                      Array.isArray(item.aftermarket_parts) && item.aftermarket_parts.length > 0 && (
                         <View key={i} className="mb-3">
                           <Text className="text-[10px] text-muted font-bold uppercase border-b border-border pb-1 mb-2">{item.item}</Text>
                           {item.aftermarket_parts.map((part, j) => (
@@ -303,7 +327,7 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
 
             {activeTab === 'videos' && (
               <View>
-                {data.video_tutorials && data.video_tutorials.length > 0 ? (
+                {Array.isArray(data.video_tutorials) && data.video_tutorials.length > 0 ? (
                   data.video_tutorials.map((vid, idx) => (
                     <TouchableOpacity
                       key={idx}
@@ -336,19 +360,28 @@ export function JobCard({ data, onLoadHex }: JobCardProps) {
             📝 Repair Procedure (SOP)
           </Text>
           <View className="border-l-2 border-border ml-3">
-            {data.sop_steps.map((step, idx) => (
+            {Array.isArray(data.sop_steps) && data.sop_steps.length > 0 ? data.sop_steps.map((step, idx) => (
               <View key={idx} className="pl-6 pb-4 relative">
                 <View className="absolute -left-3 top-0 w-6 h-6 rounded-full bg-background border border-border items-center justify-center">
                   <Text className="text-sky font-bold text-xs">{idx + 1}</Text>
                 </View>
                 <Text className="text-muted text-sm leading-relaxed">{step}</Text>
               </View>
-            ))}
+            )) : typeof data.sop_steps === 'string' && (data.sop_steps as any).trim() !== '' ? (
+              <View className="pl-6 pb-4 relative">
+                <View className="absolute -left-3 top-0 w-6 h-6 rounded-full bg-background border border-border items-center justify-center">
+                  <Text className="text-sky font-bold text-xs">1</Text>
+                </View>
+                <Text className="text-muted text-sm leading-relaxed">{data.sop_steps as any}</Text>
+              </View>
+            ) : (
+              <Text className="text-muted text-xs italic ml-3">Prosedur perbaikan belum tersedia.</Text>
+            )}
           </View>
         </View>
 
         {/* Engineering Mode */}
-        {data.obd_hex_commands && data.obd_hex_commands.length > 0 && (
+        {Array.isArray(data.obd_hex_commands) && data.obd_hex_commands.length > 0 && (
           <View className="bg-surface border border-indigo/50 rounded-xl p-4 mb-6">
             <View className="flex-row items-center mb-4">
               <Text className="text-indigo font-bold text-lg">💻 Engineering Mode</Text>

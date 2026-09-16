@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '@/constants/service-functions';
-import type { Message, MechanicResponse } from '@/shared/mechanic-types';
+import type { Message, MechanicResponse, AppSettings } from '@/shared/mechanic-types';
 
 export const StorageService = {
   // Messages
@@ -98,6 +98,43 @@ export const StorageService = {
       await AsyncStorage.setItem(STORAGE_KEYS.API_KEY, key);
     } catch (error) {
       console.error('Error saving API key:', error);
+    }
+  },
+
+  // Settings
+  async getSettings(): Promise<AppSettings> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      if (data) {
+        return JSON.parse(data) as AppSettings;
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+    
+    // Default settings
+    return {
+      provider: 'gemini',
+      geminiApiKey: '',
+      sumopodApiKey: '',
+      sumopodBaseUrl: '',
+      sumopodModel: 'llama-3.1-8b',
+      saveScope: 'global',
+    };
+  },
+
+  async saveSettings(settings: AppSettings): Promise<void> {
+    try {
+      if (settings.saveScope === 'global') {
+        await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+        // Keep API_KEY backward compatible
+        await AsyncStorage.setItem(STORAGE_KEYS.API_KEY, settings.geminiApiKey);
+      } else {
+        // If local, we don't save to AsyncStorage, we just clear it or let the app state handle it.
+        // Actually, if we want it to be purely local session, we shouldn't save to AsyncStorage.
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
     }
   },
 

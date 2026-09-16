@@ -127,3 +127,14 @@ export interface ServiceFunction {
   icon: string;
   desc: string;
 }
+
+export type AIProvider = 'gemini' | 'sumopod';
+
+export interface AppSettings {
+  provider: AIProvider;
+  geminiApiKey: string;
+  sumopodApiKey: string;
+  sumopodBaseUrl: string;
+  sumopodModel: string;
+  saveScope: 'local' | 'global';
+}

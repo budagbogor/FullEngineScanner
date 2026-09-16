@@ -20,8 +20,25 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
 
   // Helper to clean vehicle info for search queries
   const getSearchableVehicle = () => {
-    if (!data.vehicle_info) return "";
-    return data.vehicle_info.split(' ').slice(0, 3).join(' ');
+    if (!data.vehicle_info) return "Unknown Vehicle";
+    let info = "";
+    if (typeof data.vehicle_info === 'string') {
+      info = data.vehicle_info;
+    } else if (typeof data.vehicle_info === 'object') {
+      info = Object.values(data.vehicle_info).filter(v => typeof v === 'string' || typeof v === 'number').join(' ');
+    } else {
+      info = String(data.vehicle_info);
+    }
+    return info.split(' ').slice(0, 3).join(' ');
+  };
+
+  const getDisplayVehicle = () => {
+    if (!data.vehicle_info) return "Unknown Vehicle";
+    if (typeof data.vehicle_info === 'string') return data.vehicle_info;
+    if (typeof data.vehicle_info === 'object') {
+      return Object.values(data.vehicle_info).filter(v => typeof v === 'string' || typeof v === 'number').join(' ');
+    }
+    return String(data.vehicle_info);
   };
 
   const cleanVehicleName = getSearchableVehicle();
@@ -99,7 +116,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
              </div>
              <div>
                 <h2 className="text-blue-400 text-[10px] font-bold uppercase tracking-widest mb-0.5">Vehicle Identification</h2>
-                <h1 className="text-lg md:text-2xl font-bold text-white tracking-tight leading-none">{data.vehicle_info}</h1>
+                <h1 className="text-lg md:text-2xl font-bold text-white tracking-tight leading-none">{getDisplayVehicle()}</h1>
                 <div className="flex gap-2 mt-1">
                    <span className="bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-[10px] text-slate-300 font-mono">{data.component_id}</span>
                    {data.estimated_work_time && <span className="bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-[10px] text-green-400 font-bold">⏱ {data.estimated_work_time}</span>}
@@ -146,11 +163,17 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                 Expert Diagnosis
               </h3>
               <ul className="space-y-2">
-                {data.diagnosis.map((diag, idx) => (
+                {Array.isArray(data.diagnosis) && data.diagnosis.length > 0 ? data.diagnosis.map((diag, idx) => (
                     <li key={idx} className="flex items-start text-slate-300 text-sm bg-slate-800/30 p-2 rounded">
                         <span className="text-blue-500 mr-2">•</span> {diag}
                     </li>
-                ))}
+                )) : typeof data.diagnosis === 'string' && (data.diagnosis as any).trim() !== '' ? (
+                    <li className="flex items-start text-slate-300 text-sm bg-slate-800/30 p-2 rounded">
+                        <span className="text-blue-500 mr-2">•</span> {data.diagnosis as any}
+                    </li>
+                ) : (
+                    <li className="text-slate-500 text-xs italic">Data diagnosa belum tersedia.</li>
+                )}
               </ul>
               <p className="mt-3 text-slate-400 italic text-sm border-l-2 border-blue-500 pl-3">"{data.manual_summary}"</p>
            </section>
@@ -162,7 +185,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                 DTC & TSB Analysis (Click to View)
               </h3>
               
-              {data.dtc_list && data.dtc_list.length > 0 ? (
+              {Array.isArray(data.dtc_list) && data.dtc_list.length > 0 ? (
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                       {data.dtc_list.map((dtc, idx) => (
                           <div 
@@ -182,7 +205,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                   </div>
               ) : <div className="text-xs text-slate-500 italic">Tidak ada kode DTC spesifik.</div>}
 
-              {data.tsb_list && data.tsb_list.length > 0 && (
+              {Array.isArray(data.tsb_list) && data.tsb_list.length > 0 && (
                   <div className="mt-4">
                       <div className="text-[10px] font-bold text-slate-500 mb-1 uppercase">Related TSBs</div>
                       {data.tsb_list.map((tsb, idx) => (
@@ -238,7 +261,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                                 <span className="flex items-center"><span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Torque Specifications</span>
                                 <span className="text-[9px] text-slate-500 italic font-normal">Klik untuk lihat Diagram Manual</span>
                             </h4>
-                            {data.torque_specs && data.torque_specs.length > 0 ? (
+                            {Array.isArray(data.torque_specs) && data.torque_specs.length > 0 ? (
                                 <table className="w-full text-left text-xs text-slate-300">
                                     <thead>
                                         <tr className="border-b border-slate-700 text-slate-500">
@@ -276,7 +299,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                                 <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span> Fluids & Maintenance
                             </h4>
                             <div className="space-y-2">
-                                {data.maintenance_data && data.maintenance_data.map((item, i) => (
+                                {Array.isArray(data.maintenance_data) && data.maintenance_data.map((item, i) => (
                                     <div key={i} className="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700">
                                         <div>
                                             <div className="text-xs text-slate-300 font-bold">{item.item}</div>
@@ -285,7 +308,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                                         <div className="text-xs font-mono text-purple-300 font-bold">{item.value}</div>
                                     </div>
                                 ))}
-                                {(!data.maintenance_data || data.maintenance_data.length === 0) && <p className="text-slate-500 text-xs italic">Data maintenance tidak tersedia.</p>}
+                                {(!Array.isArray(data.maintenance_data) || data.maintenance_data.length === 0) && <p className="text-slate-500 text-xs italic">Data maintenance tidak tersedia.</p>}
                             </div>
                         </div>
                     </div>
@@ -300,7 +323,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                                  <span className="text-[9px] text-slate-500 italic font-normal">Klik untuk cari alat</span>
                              </h4>
                              <ul className="grid grid-cols-2 gap-2">
-                                 {data.tools_list && data.tools_list.map((tool, i) => (
+                                 {Array.isArray(data.tools_list) && data.tools_list.map((tool, i) => (
                                      <li 
                                         key={i} 
                                         onClick={() => openSearch(tool, 'tool')}
@@ -317,9 +340,9 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                         <div>
                             <h4 className="text-slate-400 text-xs font-bold uppercase mb-3">Parts Suggestion</h4>
                             <div className="space-y-2">
-                                {data.maintenance_data && data.maintenance_data.some(i => i.aftermarket_parts && i.aftermarket_parts.length > 0) ? (
+                                {Array.isArray(data.maintenance_data) && data.maintenance_data.some(i => Array.isArray(i.aftermarket_parts) && i.aftermarket_parts.length > 0) ? (
                                     data.maintenance_data.map((item, i) => (
-                                        item.aftermarket_parts && item.aftermarket_parts.length > 0 && (
+                                        Array.isArray(item.aftermarket_parts) && item.aftermarket_parts.length > 0 && (
                                             <div key={i} className="mb-2">
                                                  <div className="text-[10px] text-slate-500 font-bold mb-1 uppercase tracking-wide border-b border-slate-800 pb-0.5">{item.item}</div>
                                                  {item.aftermarket_parts.map((part, j) => (
@@ -383,7 +406,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                 {/* TAB: VIDEOS (RESTORED) */}
                 {activeTab === 'videos' && (
                     <div className="animate-fade-in grid gap-4">
-                        {data.video_tutorials && data.video_tutorials.length > 0 ? (
+                        {Array.isArray(data.video_tutorials) && data.video_tutorials.length > 0 ? (
                             data.video_tutorials.map((vid, idx) => (
                                 <a 
                                     key={idx}
@@ -423,7 +446,7 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
              Repair Procedure (SOP)
           </h3>
           <div className="relative border-l border-slate-700 ml-3 space-y-6">
-            {data.sop_steps.map((instruction, idx) => (
+            {Array.isArray(data.sop_steps) && data.sop_steps.length > 0 ? data.sop_steps.map((instruction, idx) => (
                 <div key={idx} className="pl-6 relative group">
                   <div className="absolute -left-[13px] top-0 w-6 h-6 rounded-full bg-slate-900 border border-slate-600 flex items-center justify-center text-sky-500 font-bold text-xs group-hover:border-sky-500 group-hover:bg-sky-950 transition-colors">
                     {idx + 1}
@@ -432,12 +455,23 @@ const JobCard: React.FC<JobCardProps> = ({ data, onLoadHex }) => {
                      <p className="text-slate-300 text-sm md:text-base leading-relaxed">{instruction}</p>
                   </div>
                 </div>
-            ))}
+            )) : typeof data.sop_steps === 'string' && (data.sop_steps as any).trim() !== '' ? (
+                <div className="pl-6 relative group">
+                  <div className="absolute -left-[13px] top-0 w-6 h-6 rounded-full bg-slate-900 border border-slate-600 flex items-center justify-center text-sky-500 font-bold text-xs group-hover:border-sky-500 group-hover:bg-sky-950 transition-colors">
+                    1
+                  </div>
+                  <div className="pt-0.5">
+                     <p className="text-slate-300 text-sm md:text-base leading-relaxed">{data.sop_steps as any}</p>
+                  </div>
+                </div>
+            ) : (
+                <p className="text-slate-500 text-xs italic ml-3">Prosedur perbaikan belum tersedia.</p>
+            )}
           </div>
         </section>
 
         {/* 6. ENGINEERING MODE */}
-        {data.obd_hex_commands && data.obd_hex_commands.length > 0 && (
+        {Array.isArray(data.obd_hex_commands) && data.obd_hex_commands.length > 0 && (
             <div className="mt-10 pt-10 border-t-2 border-slate-800">
                 <div className="bg-slate-900 border border-indigo-500/50 rounded-lg p-6 animate-fade-in relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-2 opacity-10">
